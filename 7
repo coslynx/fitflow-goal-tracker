@@ -1,0 +1,181 @@
+import axios, { AxiosResponse } from 'axios';
+import dotenv from 'dotenv';
+import { describe, it, expect, beforeAll } from '@jest/globals';
+
+dotenv.config();
+
+const baseURL = process.env.API_BASE_URL || 'http://localhost:3000';
+
+interface User {
+    _id: string;
+    username: string;
+    email: string;
+}
+
+interface Goal {
+    _id: string;
+    title: string;
+    description: string;
+    userId: string;
+}
+
+
+let authToken: string;
+
+beforeAll(async () => {
+    try {
+        const registerResponse = await axios.post(${baseURL}/auth/register, {
+            username: 'testuser',
+            email: 'test@example.com',
+            password: 'password123',
+        });
+
+        expect(registerResponse.status).toBe(201);
+
+        const loginResponse = await axios.post(${baseURL}/auth/login, {
+            email: 'test@example.com',
+            password: 'password123',
+        });
+
+        expect(loginResponse.status).toBe(200);
+        expect(loginResponse.data.token).toBeDefined();
+
+        authToken = loginResponse.data.token;
+        
+    } catch (error: any) {
+        console.error("Error during setup:", error);
+        throw error;
+    }
+});
+
+
+
+describe('User API Endpoints', () => {
+    it('should register a new user', async () => {
+        try {
+            const response = await axios.post(${baseURL}/auth/register, {
+                username: 'testuser2',
+                email: 'test2@example.com',
+                password: 'password123',
+            });
+            expect(response.status).toBe(201);
+            expect(response.data.user).toBeDefined();
+            expect(response.headers['content-type']).toContain('application/json');
+        } catch (error: any) {
+             console.error('Error registering user:', error);
+             expect(error).toBeUndefined();
+        }
+    });
+    it('should login an existing user', async () => {
+        try {
+            const response = await axios.post(${baseURL}/auth/login, {
+                email: 'test@example.com',
+                password: 'password123',
+            });
+            expect(response.status).toBe(200);
+            expect(response.data.token).toBeDefined();
+             expect(response.headers['content-type']).toContain('application/json');
+        } catch (error: any) {
+             console.error('Error logging in user:', error);
+             expect(error).toBeUndefined();
+        }
+    });
+    it('should fail login with invalid credentials', async () => {
+        try {
+             const response = await axios.post(${baseURL}/auth/login, {
+                email: 'test@example.com',
+                password: 'wrongpassword',
+            });
+              expect(response).toBeUndefined()
+        } catch (error: any) {
+             expect(error.response.status).toBe(401);
+             expect(error.response.data.message).toBe('Invalid credentials');
+        }
+    });
+     it('should get all users with valid authentication', async () => {
+         try {
+             const response: AxiosResponse<{ users: User[] }> = await axios.get(${baseURL}/users, {
+                headers: { Authorization: Bearer ${authToken} },
+            });
+             expect(response.status).toBe(200);
+            expect(response.data).toBeDefined();
+             expect(response.data.users).toBeInstanceOf(Array);
+             expect(response.headers['content-type']).toContain('application/json');
+         } catch (error: any) {
+             console.error('Error getting users:', error);
+              expect(error).toBeUndefined();
+        }
+    });
+    it('should fail to get users without authentication', async () => {
+        try {
+            await axios.get(${baseURL}/users);
+             expect(true).toBeFalsy();
+        } catch (error: any) {
+            expect(error.response.status).toBe(401);
+            expect(error.response.data.message).toBe('No token provided');
+        }
+    });
+
+});
+
+describe('Goal API Endpoints', () => {
+     it('should create a new goal with valid authentication', async () => {
+        try {
+            const response: AxiosResponse<Goal> = await axios.post(
+                ${baseURL}/goals,
+                {
+                    title: 'Test Goal',
+                    description: 'Test description for the goal',
+                },
+                {
+                    headers: { Authorization: Bearer ${authToken} },
+                }
+            );
+             expect(response.status).toBe(201);
+            expect(response.data).toBeDefined();
+            expect(response.data.title).toBe('Test Goal');
+            expect(response.headers['content-type']).toContain('application/json');
+        } catch (error: any) {
+             console.error('Error creating goal:', error);
+             expect(error).toBeUndefined();
+        }
+    });
+
+    it('should fail to create a new goal with invalid authentication', async () => {
+        try {
+            await axios.post(${baseURL}/goals, {
+                    title: 'Test Goal',
+                    description: 'Test description for the goal',
+                });
+             expect(true).toBeFalsy();
+         } catch (error: any) {
+            expect(error.response.status).toBe(401);
+            expect(error.response.data.message).toBe('No token provided');
+        }
+    });
+    
+      it('should get all goals with valid authentication', async () => {
+         try {
+            const response: AxiosResponse<{ goals: Goal[] }> = await axios.get(${baseURL}/goals, {
+                headers: { Authorization: Bearer ${authToken} },
+            });
+              expect(response.status).toBe(200);
+            expect(response.data).toBeDefined();
+             expect(response.data.goals).toBeInstanceOf(Array);
+              expect(response.headers['content-type']).toContain('application/json');
+         } catch (error: any) {
+             console.error('Error getting goals:', error);
+               expect(error).toBeUndefined();
+        }
+    });
+
+    it('should fail to get goals without authentication', async () => {
+        try {
+           await axios.get(${baseURL}/goals);
+            expect(true).toBeFalsy();
+         } catch (error: any) {
+            expect(error.response.status).toBe(401);
+            expect(error.response.data.message).toBe('No token provided');
+        }
+    });
+});
