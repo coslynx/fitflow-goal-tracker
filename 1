@@ -1,0 +1,169 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Input } from './Input';
+import { Button } from './Button';
+import { useAuth } from '../hooks/useAuth';
+
+interface AuthFormState {
+    email: string;
+    password: string;
+    isRegistering: boolean;
+    error: string | null;
+}
+
+interface AuthResponse {
+    token?: string;
+    message?: string;
+}
+
+
+const initialAuthState: AuthFormState = {
+    email: '',
+    password: '',
+    isRegistering: false,
+    error: null,
+};
+
+
+const AuthForm: React.FC = () => {
+    const [authFormState, setAuthFormState] = useState<AuthFormState>(initialAuthState);
+    const navigate = useNavigate();
+    const { login, register } = useAuth();
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setAuthFormState((prevState) => ({
+            ...prevState,
+            [name]: value,
+            error: null,
+        }));
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (!authFormState.email || !authFormState.password) {
+            setAuthFormState((prevState) => ({
+                ...prevState,
+                error: 'Please fill in all fields',
+            }));
+            return;
+        }
+
+        const { email, password, isRegistering } = authFormState;
+
+         // Basic email validation
+         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setAuthFormState((prevState) => ({
+                ...prevState,
+               error: 'Invalid email format',
+             }));
+              return;
+         }
+
+
+        const endpoint = isRegistering ? '/api/register' : '/api/login';
+        const sanitizedEmail = String(email).trim();
+        const sanitizedPassword = String(password).trim();
+
+
+        try {
+            console.log(API Request: ${endpoint} with data:, { email: sanitizedEmail, password: sanitizedPassword });
+            const response = await axios.post(endpoint, {
+                email: sanitizedEmail,
+                password: sanitizedPassword,
+            });
+            console.log('API Response:', response);
+            const data: AuthResponse = response.data;
+
+            if (response.status === 200) {
+                if(isRegistering){
+                    if(data.message){
+                         console.log('Registration successful', data.message);
+                        setAuthFormState(initialAuthState);
+                        navigate('/dashboard');
+                    }
+
+                }else{
+                   if(data.token){
+                      login(data.token);
+                        console.log('Login successful');
+                    setAuthFormState(initialAuthState);
+                        navigate('/dashboard');
+                   }
+                }
+
+
+
+            } else {
+                setAuthFormState((prevState) => ({
+                    ...prevState,
+                   error: data.message || 'Authentication failed',
+                 }));
+                 console.error('API Error:', response.status, data.message);
+            }
+
+        } catch (error:any) {
+            console.error('API Error:', error);
+                setAuthFormState((prevState) => ({
+                     ...prevState,
+                    error: error.response?.data?.message || error.message || 'An unexpected error occurred',
+                  }));
+        }
+    };
+
+
+    const toggleAuthMode = () => {
+        setAuthFormState((prevState) => ({
+            ...prevState,
+            isRegistering: !prevState.isRegistering,
+            error: null,
+        }));
+    };
+
+
+    return (
+        <div className="flex justify-center items-center h-screen bg-gray-100">
+            <div className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4 w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-6 text-center">
+                    {authFormState.isRegistering ? 'Register' : 'Login'}
+                </h2>
+                {authFormState.error && (
+                    <div className="text-red-500 mb-4 text-center">{authFormState.error}</div>
+                )}
+                <form onSubmit={handleSubmit}>
+                    <Input
+                        label="Email"
+                        type="email"
+                        name="email"
+                        value={authFormState.email}
+                        onChange={handleChange}
+                         required
+                    />
+                    <Input
+                        label="Password"
+                        type="password"
+                        name="password"
+                        value={authFormState.password}
+                        onChange={handleChange}
+                        required
+                    />
+                   <Button type="submit" className="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                       {authFormState.isRegistering ? 'Register' : 'Login'}
+                    </Button>
+                    </form>
+
+
+                <div className="mt-4 text-center">
+                   <button type="button" onClick={toggleAuthMode} className="text-blue-500 hover:text-blue-700">
+                     {authFormState.isRegistering ? 'Already have an account? Login' : 'New user? Register'}
+                    </button>
+                 </div>
+            </div>
+        </div>
+    );
+};
+
+export default AuthForm;
